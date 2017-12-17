@@ -4,8 +4,7 @@ let solve input offset =
     let digits = input |> Seq.map (fun c -> (int)(Char.GetNumericValue c)) |> Seq.toArray
 
     Array.append digits.[offset..] digits.[0..(offset-1)]
-    |> Array.zip digits
-    |> Array.map (fun (v, n) -> if v = n then v else 0) 
+    |> Array.map2 (fun v n -> if v = n then v else 0) digits
     |> Array.sum
 
 [<EntryPoint>]
