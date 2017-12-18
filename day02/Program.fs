@@ -1,19 +1,34 @@
 ﻿open System
 
-let arrayChecksum (arr:array<int>) = 
-    let sorted = arr |> Array.sortDescending 
-    Math.Abs((sorted.[0] - sorted.[(sorted.Length - 1)]))
+let printJaggedArray arr = 
+    arr |> Array.iter (fun r -> printfn "row: %A" r)
 
 let tableToArray (t:string) =
         t.Split("\n") |> Array.map (fun l -> l.Split("\t") |> Array.map (fun c -> Int32.Parse(c)))
+ 
+let rowChecksum (arr:array<int>) = 
+    let sorted = arr |> Array.sortDescending 
+    Math.Abs((sorted.[0] - sorted.[(sorted.Length - 1)]))
 
-let printJaggedArray arr = 
-    arr |> Array.iter (fun r -> printfn "row: %A" r)
-    arr
+let rec rowPairs (row:array<int>) offset (pairs:array<int*int>) = 
+    if offset % row.Length = 0 then pairs else
+    row 
+        |> Array.mapi (fun i r -> (r,row.[(i + offset) % row.Length]))
+        |> Array.append pairs
+        |> rowPairs row (offset + 1)
+
+let evenlyDivisible (pairs:array<int*int>) =
+    pairs |> Array.find (fun (x,y) -> x % y = 0)
 
 let part1 input = 
-    let table = tableToArray input 
-    table |> Array.map (fun r -> arrayChecksum r) |> Array.sum
+    tableToArray input
+    |> Array.map (fun r -> rowChecksum r) |> Array.sum
+
+let part2 input = 
+    tableToArray input 
+    |> Array.map (fun r -> rowPairs r 1 Array.empty<int*int>) 
+    |> Array.map evenlyDivisible 
+    |> Array.map (fun (x,y) -> x / y) |> Array.sum
 
 [<EntryPoint>]
 let main argv =
@@ -35,5 +50,7 @@ let main argv =
 1567	3246	4194	151	3112	903	1575	134	150	4184	3718	4077	180	4307	4097	1705"
 
     printfn "part 1: %i"  <| part1 input
+    printfn "part 2: %i" <| part2 input
+
     Console.ReadLine() |> ignore
     0 // return an integer exit code
