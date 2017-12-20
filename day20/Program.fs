@@ -1,28 +1,16 @@
 ﻿open System
+open FSharp.Collections.Array.Parallel
 
 
-let parseProperty text = 
-    let propType = text.ToString().Substring(0,1).Chars(0)
-    let components = text.ToString().Trim([|propType;'='; ' '; '>'; '<'|])
-    let vector = components.Split(",") |> Array.map (fun c -> Int32.Parse(c))
-    (propType.ToString(),(vector.[0],vector.[1],vector.[2]))
+let testInput = "p=< 3,0,0>, v=< 2,0,0>, a=<-1,0,0>
+p=< 4,0,0>, v=< 0,0,0>, a=<-2,0,0>"
 
+let testInput2 = "p=<-6,0,0>, v=< 3,0,0>, a=< 0,0,0>
+p=<-4,0,0>, v=< 2,0,0>, a=< 0,0,0>
+p=<-2,0,0>, v=< 1,0,0>, a=< 0,0,0>
+p=< 3,0,0>, v=<-1,0,0>, a=< 0,0,0>"
 
-[<EntryPoint>]
-let main argv =
-    let testInput = "p=< 3,0,0>, v=< 2,0,0>, a=<-1,0,0>
-p=< 4,0,0>, v=< 0,0,0>, a=<-2,0,0>
-
-p=< 4,0,0>, v=< 1,0,0>, a=<-1,0,0>
-p=< 2,0,0>, v=<-2,0,0>, a=<-2,0,0>
-
-p=< 4,0,0>, v=< 0,0,0>, a=<-1,0,0>
-p=<-2,0,0>, v=<-4,0,0>, a=<-2,0,0>
-
-p=< 3,0,0>, v=<-1,0,0>, a=<-1,0,0>
-p=<-8,0,0>, v=<-6,0,0>, a=<-2,0,0>"
-
-    let input = "p=<-1027,-979,-188>, v=<7,60,66>, a=<9,1,-7>
+let input = "p=<-1027,-979,-188>, v=<7,60,66>, a=<9,1,-7>
 p=<-1846,-1539,-1147>, v=<88,145,67>, a=<6,-5,2>
 p=<338,820,1541>, v=<-23,-16,-80>, a=<0,-6,-4>
 p=<-3162,-1301,225>, v=<92,-52,59>, a=<18,19,-10>
@@ -1022,27 +1010,138 @@ p=<-313,1075,-2598>, v=<-44,158,-369>, a=<2,-10,25>
 p=<-2104,-2241,768>, v=<-307,-321,106>, a=<17,24,-12>
 p=<378,2768,1004>, v=<51,395,147>, a=<-3,-26,-15>
 p=<-2667,-1543,1410>, v=<-382,-221,200>, a=<29,16,-16>"
+//p=<-13191,4972,-1618>, v=<0,0,0>, a=<0,0,0>"
 
-    let particles = 
-        input.Split("\r\n") 
+
+let parseProperty (text:string) = 
+    let propType = text.Substring(0,1)
+    let components = text.Trim([|propType.Chars(0);'='; ' '; '>'; '<'|])
+    let vector = components.Split(",") |> Array.map (fun c -> Int32.Parse(c))
+    (propType,(vector.[0],vector.[1],vector.[2]))
+
+let parseinput (text:String) =
+    text.Split("\r\n") 
         |> Array.filter(fun line -> line.ToString().Length > 0)
-        // rows
         |> Array.map (fun row -> row.Split(", "))
-        // array of 3 arrays
-        |> Array.mapi (fun i props -> (i,props |> Array.map (fun prop -> parseProperty prop)))
+        |> Array.mapi (fun i props -> (i,props |> Array.map (fun prop -> parseProperty prop),true))
+
+let sumVec3 left right =
+    let lx,ly,lz = left
+    let rx,ry,rz = right
+    (lx+rx,ly+ry,lz+rz)
+
+let subVec3 left right =
+    let lx,ly,lz = left
+    let rx,ry,rz = right
+    (lx-rx,ly-ry,lz-rz)
+
+let vec3Equals left right =
+    let lx,ly,lz = left
+    let rx,ry,rz = right
+    lx = rx && ly = ry && lz = rz
+
+let update (particles:(int*(string*(int*int*int))[]*bool)[]) =
+    particles |> Array.filter (fun particle -> 
+            let _,_,alive = particle
+            alive
+            )
+        |> Array.Parallel.map (fun particle -> 
+            let num,properties,alive = particle
+            let pos_type,pos = properties.[0]
+            let vel_type,vel = properties.[1]
+            let acc_type,acc = properties.[2]
+
+            let velP = sumVec3 vel acc
+            let posP = sumVec3 pos vel
+
+            (num,[|(pos_type,posP);(vel_type,velP);(acc_type,acc)|],alive)
+        )
+
+let collisionCheck (particles:(int*(string*(int*int*int))[]*bool)[]) =
+    let sortedParticles = 
+        particles
+        |> Array.sortBy (fun particle -> 
+            let _,properties,_ = particle
+            let _,pos = properties.[0]
+            let posx,_,_ = pos
+            posx// + Math.Abs(posy) + Math.Abs(posz)
+            )
     
+    sortedParticles
+        |> Array.Parallel.mapi (fun i lpart -> 
+            let collided = 
+                //sortedParticles
+                sortedParticles.[ Math.Max(i - 1, 0) .. Math.Min (i + 1, sortedParticles.Length - 1)]
+                |> Array.filter (fun rpart -> 
+                    let rnum,rprops,ralive = rpart
+                    let rpos_type,rpos = rprops.[0]
+                    let lnum,lprops,_ = lpart
+                    let lpos_type,lpos = lprops.[0]
+
+                    let lx,ly,lz = lpos
+                    let rx,ry,rz = rpos
+                    if (lx = rx && rnum <> lnum) then 
+                        //printfn "hey we found a matching x position" 
+                        if ly = ry then 
+                            printfn "matching X and Y!"
+                            printfn "rz: %i lz: %i " rz lz
+
+                    let collision = rnum <> lnum && vec3Equals lpos rpos
+                    if collision then 
+                        printfn "part %i hit part %i at %A - %A" lnum rnum lpos rpos
+                    collision
+                )
+
+            let lnum,lprops,lalive = lpart
+            let lpos_type,lpos = lprops.[0]
+            let mutable aliveP = lalive
+            //if collided <> None then aliveP <- false
+            if collided.Length > 0 then aliveP <- false
+            (lnum,lprops,aliveP)
+            )
+        |> Array.filter (fun particle -> 
+            let _,_,alive = particle
+            alive
+            )
+
+let rec tick ticks (particles:(int*(string*(int*int*int))[]*bool)[])  = 
+    if ticks = 0 || particles.Length <= 1 then particles else
+    
+    let collisionChecked = collisionCheck particles
+    let updated = update collisionChecked 
+
+    //updated.[0..0] |> Array.iteri (fun i particle -> printfn "%i: %A" i particle)
+
+    if ticks % 1000 = 0 then printfn "ticks remaining: %i" ticks
+
+    tick (ticks-1) updated
+
+[<EntryPoint>]
+let main argv =
+
+    Console.SetWindowSize(Console.WindowWidth * 2,Console.WindowHeight)
+
+    let particles = parseinput input
+        
     let accScalars = 
         particles |> Array.mapi (fun i particle -> 
-            let num,properties = particle
+            let num,properties,_ = particle
             let acc_type,acc_vec = properties.[2]
             let x,y,z = acc_vec
-            let accelScalar = Math.Sqrt( (float (x*x + y*y + z*z)) )
+            let accelScalar = Math.Sqrt( (float (x*x + y*y + z*z)) ) // not actually manhatten distance but it works... unless there are ties...
             (num,accelScalar))
         |> Array.sortBy(fun acc -> 
-            let num,scalar = acc
+            let _,scalar = acc
             abs scalar)
  
     printfn "part 1: %A" accScalars.[0]
+
+    printfn "test part 2: survivors: %i" (testInput2 |> parseinput |> tick 10).Length
+
+    printfn "Starting with %i particles" particles.Length
+    let survivors = tick 200000 particles 
+
+    printfn "survivor count: %i" survivors.Length
 
     Console.ReadLine() |> ignore
     0
