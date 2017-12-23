@@ -5,22 +5,18 @@ open System.Numerics
 
 let infectedState = "#"
 let cleanState = "."
-
+let weakenedState = "W"
+let flaggedState = "F"
 let readLines filePath = System.IO.File.ReadLines(filePath)
 
 let inputToGrid (input:string[]) =
-        input |> Array.map (fun row -> row.ToCharArray() |> Array.map (fun c -> c.ToString()) |> Array.map (fun s -> if s = infectedState then true else false))
+        input |> Array.map (fun row -> row.ToCharArray() |> Array.map (fun c -> c.ToString()))
 
-let gridToDict (g:bool[][]) = 
-
-    // not proud of this...
-    let mutable gdict = Map.ofList[]
-    for y in 0 .. g.Length - 1 do
-        let row = g.[y]
-        for x in 0 .. (row.Length - 1) do
-            gdict <- gdict.Add((x,y),g.[y].[x])
-
-    gdict
+let gridToDict (g:string[][]) =
+    g
+    |> Array.mapi (fun y row -> row |> Array.mapi (fun x cell -> ((x,y),cell) ))
+    |> Array.reduce (fun acc row -> Array.concat [acc; row] )
+    |> Map.ofArray
 
 let right dir = 
     let dir_x, dir_y = dir
@@ -36,16 +32,16 @@ let left dir =
     else if dir_y = 1 then (-1,0)
     else (1,0)
 
-let printGrid (grid:bool[][]) = 
+let printGrid (grid:string[][]) = 
 
     for i in (grid.Length - 1) .. -1 .. 0 do  
        grid.[i] |> Array.iter (fun cell -> 
-                let c = if cell then "#" else "."
+                let c = cell
                 printf "%s " c)
        printfn ""
-        
 
-let rec step steps infections (carrier:((int*int)*(int*int))) (grid:Map<(int32*int32),bool>) =
+
+let rec step steps infections (carrier:((int*int)*(int*int))) (grid:Map<(int32*int32),string>) =
     let pos,dir = carrier
     let pos_x,pos_y = pos
     let mutable newInfection = 0
@@ -54,12 +50,14 @@ let rec step steps infections (carrier:((int*int)*(int*int))) (grid:Map<(int32*i
         infections
     else
 
-    let infected = if grid.ContainsKey(pos) then grid.[(pos)] else false
-    let newGrid = grid.Add(pos, not infected)
+    let infected = if grid.ContainsKey(pos) then grid.[(pos)] = infectedState else false
+    // let newGrid = grid.Add(pos, if infected then cleanState else infectedState)
+    let newGrid = grid.Add(pos, if infected then cleanState else infectedState)
+
     let new_dir = if infected then right dir else left dir
 
     if infected = false then newInfection <- 1
-            
+
     let new_x,new_y = new_dir
     let newPos = (pos_x + new_x , pos_y + (new_y))
 
