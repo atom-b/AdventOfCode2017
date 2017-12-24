@@ -52,6 +52,7 @@ let nextState2 (node:((int*int)*string)) =
         | s when s =  weakenedState -> infectedState
         | s when s =  infectedState -> flaggedState
         | s when s =  flaggedState -> cleanState
+        | _ -> cleanState
     (pos,newState)
 
 let turn (node:((int*int)*string)) dir =
@@ -81,28 +82,28 @@ let printGrid (grid:string[][]) =
                 printf "%s " c)
        printfn ""
 
-let rec stepPart1 steps infections (carrier:((int*int)*(int*int))) (grid:Map<(int32*int32),string>) =
+let rec burst remaining infections (carrier:((int*int)*(int*int))) (grid:Map<(int32*int32),string>) switchNode =
 
-    if steps <= 0 then
+    if remaining <= 0 then
         infections
     else
 
     let pos,dir = carrier
-    let pos_x,pos_y = pos
+    let posX,posY = pos
     let node = getNode grid pos
-
-    let newGrid = grid.Add <| nextState1 node
+    let newNode = switchNode node
+    let newGrid = grid.Add <| newNode
 
     let newInfection =
-        if node |> getState = infectedState
-        then 0
-        else 1
+        if newNode |> getState = infectedState
+        then 1
+        else 0
 
     let newDir = turn node dir
     let newX,newY = newDir
-    let newPos = (pos_x + newX, pos_y + newY)
+    let newPos = (posX + newX, posY + newY)
 
-    stepPart1 (steps - 1) (infections + newInfection) (newPos,newDir)  newGrid
+    burst (remaining - 1) (infections + newInfection) (newPos,newDir) newGrid switchNode
 
 [<EntryPoint>]
 let main argv =
@@ -124,15 +125,15 @@ let main argv =
     let direction = (0,1)
     let dict = gridToDict grid
 
-    let infectionsP1 = stepPart1 iterations 0 (start,direction) dict
+    let infectionsP1 = burst iterations 0 (start,direction) dict nextState1
 
     printfn "infections: %i" infectionsP1
 
     assert (infectionsP1 = 5575)
 
     let iterationsP2 = 10000000
-    // let infectionsP2 = stepPart2 iterations 0 (start,direction) dict
-    // printfn "infections 2: %i" infectionsP2
+    let infectionsP2 = burst iterationsP2 0 (start,direction) dict nextState2
+    printfn "infections 2: %i" infectionsP2
 
     printfn "%A" DateTime.Now
 
