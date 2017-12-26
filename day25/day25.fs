@@ -3,37 +3,69 @@ open System
 let left = -1
 let right = 1
 
-type StateBranch(condition:int, writeVal:int, moveDir:int, nextStateId:string) =
-    member this.Condition = condition
-    member this.WriteVal = writeVal
-    member this.MoveDir = moveDir
-    member this.NextStateId = nextStateId
+type Rule = {
+    Condition: int;
+    WriteVal: int;
+    MoveDir: int;
+    NextStateId: string
+}
 
-type State (branchZero:StateBranch, branchOne:StateBranch) =
-    member this.Branches = [(0,branchZero); (1,branchOne)] |> Map.ofSeq
+type State = {
+    Rules: Map<int,Rule>
+}
 
 let rec step stepsRemaining (program:Map<string,State>) stateId pos (tape:Map<int,int>) =
     if stepsRemaining <= 0 then tape else
 
     let currentVal = defaultArg (tape.TryFind pos) 0
-    let branch = program.[stateId].Branches.[currentVal]
+    let branch = program.[stateId].Rules.[currentVal]
 
     tape.Add (pos, branch.WriteVal) |> step (stepsRemaining - 1) program branch.NextStateId (pos + branch.MoveDir)
 
 let testProgram =
-    let stateA = State(StateBranch(0, 1, right, "B"), StateBranch(1, 0, left, "B"))
-    let stateB = State(StateBranch(0, 1, left, "A"), StateBranch(1, 1, right, "A"))
 
-    [("A", stateA); ("B", stateB)] |> Map.ofSeq
+    [
+        ("A",
+            { Rules = [
+                (0, {Condition = 0; WriteVal = 1; MoveDir = right; NextStateId = "B";});
+                (1, {Condition = 1; WriteVal = 0; MoveDir = left; NextStateId = "B";});]
+                |> Map.ofSeq
+            });
+        ("B", { Rules = [
+            (0, {Condition = 0; WriteVal = 1; MoveDir = left; NextStateId = "A";});
+            (1, {Condition = 1; WriteVal = 1; MoveDir = right; NextStateId = "A";});]
+            |> Map.ofSeq });
+    ] |> Map.ofSeq
 
 let inputProgram =
     [
-        ("A", State(StateBranch(0, 1, right, "B"), StateBranch(1,0,left,"B")));
-        ("B", State(StateBranch(0,0,right,"C"), StateBranch(1,1,left,"B")));
-        ("C", State(StateBranch(0,1,right,"D"), StateBranch(1,0,left,"A")));
-        ("D", State(StateBranch(0,1,left,"E"), StateBranch(1,1,left,"F")));
-        ("E", State(StateBranch(0,1,left,"A"), StateBranch(1,0,left,"D")));
-        ("F", State(StateBranch(0,1,right,"A"), StateBranch(1,1,left,"E")));
+        ("A", { Rules = [
+            (0, {Condition = 0; WriteVal = 1; MoveDir = right; NextStateId = "B";});
+            (1, {Condition = 1; WriteVal = 0; MoveDir = left; NextStateId = "B";});]
+            |> Map.ofSeq });
+        ("B", { Rules = [
+            (0, {Condition = 0; WriteVal = 0; MoveDir = right; NextStateId = "C";});
+            (1, {Condition = 1; WriteVal = 1; MoveDir = left; NextStateId = "B";});]
+            |> Map.ofSeq });
+        ("C", { Rules = [
+            (0, {Condition = 0; WriteVal = 1; MoveDir = right; NextStateId = "D";});
+            (1, {Condition = 1; WriteVal = 0; MoveDir = left; NextStateId = "A";});]
+            |> Map.ofSeq });
+
+        ("D", { Rules = [
+            (0, {Condition = 0; WriteVal = 1; MoveDir = left; NextStateId = "E";});
+            (1, {Condition = 1; WriteVal = 1; MoveDir = left; NextStateId = "F";});]
+            |> Map.ofSeq });
+
+        ("E", { Rules = [
+            (0, {Condition = 0; WriteVal = 1; MoveDir = left; NextStateId = "A";});
+            (1, {Condition = 1; WriteVal = 0; MoveDir = left; NextStateId = "D";});]
+            |> Map.ofSeq });
+
+        ("F", { Rules = [
+            (0, {Condition = 0; WriteVal = 1; MoveDir = right; NextStateId = "A";});
+            (1, {Condition = 1; WriteVal = 1; MoveDir = left; NextStateId = "E";});]
+            |> Map.ofSeq });
     ] |> Map.ofSeq
 
 [<EntryPoint>]
